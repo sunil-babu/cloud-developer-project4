@@ -4,6 +4,8 @@ service:
 plugins:
   - serverless-webpack
   - serverless-iam-roles-per-function
+  - serverless-reqvalidator-plugin
+  - serverless-aws-documentation
 
 provider:
   name: aws
@@ -15,12 +17,49 @@ provider:
   environment:
     TODOS_TABLE: serverless-Todos-${self:provider.stage}
     TODOS_BY_USER_INDEX: TodosByUserIndex
-    ATTACHMENTS_S3_BUCKET: serverless-todos-attachments-bucket${self:provider.stage}  
+    ATTACHMENTS_S3_BUCKET: serverless-todos-attachments-bucket${self:provider.stage}
     AUTH_0_JWKS_URL: https://dev-ht4686bt.eu.auth0.com/.well-known/jwks.json
 
   tracing:
     lambda: true
     apiGateway: true
+
+custom:
+  documentation:
+    api:
+      info:
+        version: '1.0.0'
+        title: cloud-developer-serverless-todo-api
+        description: cloud-developer-serverless-todo-api
+    models:
+      - name: CreateTodoRequest
+        contentType: 'application/json'
+        schema:
+          required:
+            - name
+            - dueDate
+          properties:
+            name:
+              type: string
+              minLength: 3
+            dueDate:
+              type: string
+      - name: UpdateTodoRequest
+        contentType: 'application/json'
+        schema:
+          required:
+            - name
+            - dueDate
+            - done
+          properties:
+            name:
+              type: string
+              minLength: 3
+            dueDate:
+              type: string
+            done:
+              type: boolean
+
 
 functions:
 
@@ -63,6 +102,12 @@ functions:
           path: todos
           cors: true
           auth: Auth
+          documentation:
+            summary: 'Create a new todo item'
+            description: 'Create a new todo item'
+            requestModels:
+              'application/json': CreateTodoRequest
+          reqValidatorName: onlyBody
     iamRoleStatements:
       - Effect: Allow
         Action:
@@ -91,6 +136,12 @@ functions:
           path: todos/{todoId}
           cors: true
           auth: Auth
+          documentation:
+            summary: 'Update a todo item'
+            description: 'Update a todo item'
+            requestModels:
+              'application/json': UpdateTodoRequest
+          reqValidatorName: onlyBody
     iamRoleStatements:
       - Effect: Allow
         Action:
@@ -187,6 +238,15 @@ resources:
         ResponseType: DEFAULT_4XX
         RestApiId:
           Ref: ApiGatewayRestApi
+
+    onlyBody:
+      Type: 'AWS::ApiGateway::RequestValidator'
+      Properties:
+        Name: 'only-body'
+        RestApiId:
+          Ref: ApiGatewayRestApi
+        ValidateRequestBody: true
+        ValidateRequestParameters: false
 
     # DynamoDB
     TodosTable:
